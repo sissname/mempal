@@ -15,7 +15,6 @@ import sys
 import math
 import re
 import subprocess
-from functools import lru_cache
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -667,8 +666,12 @@ def add_to_graph(memory_id, content, mem_type):
     
     save_graph(graph)
 
-def discover_edges(new_id, new_content, all_nodes):
-    """自动发现关联边（支持多种关系类型）"""
+def discover_edges(new_id, new_content, all_nodes, max_edges=5):
+    """自动发现关联边（支持多种关系类型，限制边数量）
+    
+    Args:
+        max_edges: 最大边数量，防止图谱膨胀（默认 5 条）
+    """
     edges = []
     
     # 提取关键词（使用 jieba 或正则）
@@ -676,6 +679,9 @@ def discover_edges(new_id, new_content, all_nodes):
         keywords = set(jieba.lcut(new_content))
     else:
         keywords = set(re.findall(r'[\u4e00-\u9fa5]{2,}', new_content))
+    
+    # 按共同关键词数量排序，优先保留强关联
+    candidate_edges = []
     
     for node in all_nodes:
         if node["id"] == new_id:
@@ -689,16 +695,24 @@ def discover_edges(new_id, new_content, all_nodes):
         
         common = keywords & node_keywords
         
-        if len(common) >= 1:  # 降低阈值到 1 个共同词
+        if len(common) >= 2:  # 提高阈值到 2 个共同词，减少误报
             # 判断关系类型
             relation = detect_relation_type(new_content, node["content"], common)
             
-            edges.append({
+            candidate_edges.append({
                 "from": new_id,
                 "to": node["id"],
                 "relation": relation,
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
+                "common_count": len(common)  # 用于排序
             })
+    
+    # 按共同关键词数量排序，取前 N 个
+    candidate_edges.sort(key=lambda x: x["common_count"], reverse=True)
+    
+    for edge in candidate_edges[:max_edges]:
+        del edge["common_count"]  # 移除辅助字段
+        edges.append(edge)
     
     return edges
 
@@ -840,11 +854,16 @@ def capture(type, content, importance=0.5, tags=None):
     # 6. 添加到知识图谱（改进 4）
     add_to_graph(memory_id, content, type)
     
+    # 7. 更新关键词索引（v4.3 修复）
+    if ENABLE_KEYWORD_INDEX:
+        update_keyword_index(content, action='add')
+    
     result = {
         "id": memory_id,
         "layer": layer,
         "status": "success",
-        "timestamp": timestamp.isoformat()
+        "timestamp": timestamp.isoformat(),
+        "created_at": timestamp.strftime('%Y-%m-%d')  # 用于权重计算
     }
     
     # 附加冲突信息
@@ -899,16 +918,15 @@ def append_to_session_state(type, content, timestamp_str):
 
 def search(query, type=None, limit=10):
     """
-    v4.2 搜索：同义词扩展 + 高级权重 + 关联扩展 + LRU 缓存
+    v4.3 搜索：同义词扩展 + 高级权重 + 关联扩展
+    
+    注意：不使用 LRU 缓存，因为文件修改后缓存会失效
+    改用关键词索引加速搜索（如果已构建）
     """
-    return search_cached(query, type, limit)
-
-@lru_cache(maxsize=SEARCH_CACHE_SIZE)
-def search_cached(query, type=None, limit=10):
-    """
-    搜索记忆（带 LRU 缓存 + 索引优化）
-    """
-    # 检查是否使用索引搜索（大数据量时）
+    # 1. 同义词扩展（改进 1）
+    expanded_keywords = expand_query(query)
+    
+    # 2. 优先使用索引搜索（如果已构建）
     if ENABLE_KEYWORD_INDEX and KEYWORD_INDEX_PATH.exists():
         index_result = search_with_index(query, type, limit)
         if index_result.get("from_index") and len(index_result["results"]) > 0:
@@ -921,10 +939,7 @@ def search_cached(query, type=None, limit=10):
                 "from_index": True
             }
     
-    # 回退到传统搜索
-    # 1. 同义词扩展（改进 1）
-    expanded_keywords = expand_query(query)
-    
+    # 3. 回退到传统搜索
     results = []
     seen_contents = set()
     

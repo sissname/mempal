@@ -30,25 +30,34 @@ openclawmp install mempal
 python3 ~/.openclaw/workspace/skills/mempal/bin/memory-v4.1.py status
 ```
 
-### 3. 采集记忆
+### 3. 使用简洁 CLI（推荐）
 
 ```bash
-# 普通采集
+# 采集记忆
+mempal capture -t decision -c "用 Tailwind" -i 0.9
+
+# 搜索记忆
+mempal search "CSS 框架"
+
+# 查看状态
+mempal status
+
+# 预测提醒
+mempal predict
+
+# 帮助
+mempal --help
+```
+
+### 4. 或使用完整命令
+
+```bash
+# 完整命令（功能相同）
 python3 ~/.openclaw/workspace/skills/mempal/bin/memory-v4.1.py capture type="decision" content="用 Tailwind" importance="0.9"
 
 # 错误示例（空内容）
 python3 ~/.openclaw/workspace/skills/mempal/bin/memory-v4.1.py capture type="decision" content="" importance="0.9"
 # 返回：{"status": "error", "errors": ["内容不能为空"]}
-```
-
-### 4. 搜索记忆
-
-```bash
-# 关键词搜索（自动同义词扩展）
-python3 ~/.openclaw/workspace/skills/mempal/bin/memory-v4.1.py search query="CSS 框架"
-
-# 按类型搜索
-python3 ~/.openclaw/workspace/skills/mempal/bin/memory-v4.1.py search query="Tailwind" type="decision"
 ```
 
 ### 5. 预测提醒

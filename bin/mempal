@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""
+忆伴 MemPal - 简洁命令行接口
+
+用法:
+    mempal capture -t decision -c "用 Tailwind" -i 0.9
+    mempal search "CSS 框架"
+    mempal status
+    mempal help
+"""
+
+import sys
+import argparse
+import importlib.util
+from pathlib import Path
+
+# 添加路径
+bin_dir = Path(__file__).parent
+sys.path.insert(0, str(bin_dir))
+
+# 动态导入 memory-v4.1.py
+spec = importlib.util.spec_from_file_location(
+    "memory_v41",
+    bin_dir / "memory-v4.1.py"
+)
+memory_v41 = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(memory_v41)
+
+# 导入函数
+capture = memory_v41.capture
+search = memory_v41.search
+predict = memory_v41.predict
+status = memory_v41.status
+build_keyword_index = memory_v41.build_keyword_index
+export_memories = memory_v41.export_memories
+import_memories = memory_v41.import_memories
+git_backup = memory_v41.git_backup
+enable_git_backup = memory_v41.enable_git_backup
+disable_git_backup = memory_v41.disable_git_backup
+clear_cache = memory_v41.clear_cache
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='mempal',
+        description='🧠 忆伴 MemPal - 你的记忆伙伴',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+示例:
+  mempal capture -t decision -c "用 Tailwind" -i 0.9
+  mempal search "CSS 框架"
+  mempal status
+  mempal predict
+  mempal build-index
+        '''
+    )
+    
+    subparsers = parser.add_subparsers(dest='command', help='可用命令')
+    
+    # capture 命令
+    capture_parser = subparsers.add_parser('capture', help='采集记忆')
+    capture_parser.add_argument('-t', '--type', required=True, 
+                                choices=['decision', 'preference', 'fact', 'event', 'task', 'insight', 'error'],
+                                help='记忆类型')
+    capture_parser.add_argument('-c', '--content', required=True, help='记忆内容')
+    capture_parser.add_argument('-i', '--importance', type=float, default=0.5, help='重要性 (0-1)')
+    
+    # search 命令
+    search_parser = subparsers.add_parser('search', help='搜索记忆')
+    search_parser.add_argument('query', help='搜索关键词')
+    search_parser.add_argument('-t', '--type', help='按类型过滤')
+    search_parser.add_argument('-l', '--limit', type=int, default=10, help='结果数量')
+    
+    # status 命令
+    subparsers.add_parser('status', help='查看状态')
+    
+    # predict 命令
+    subparsers.add_parser('predict', help='预测提醒（检查截止/冲突）')
+    
+    # build-index 命令
+    subparsers.add_parser('build-index', help='构建关键词索引')
+    
+    # export 命令
+    export_parser = subparsers.add_parser('export', help='导出记忆')
+    export_parser.add_argument('-f', '--format', choices=['json', 'markdown'], default='json')
+    export_parser.add_argument('-o', '--output', help='输出文件')
+    
+    # import 命令
+    import_parser = subparsers.add_parser('import', help='导入记忆')
+    import_parser.add_argument('file', help='输入文件')
+    import_parser.add_argument('-f', '--format', choices=['json', 'markdown'], default='json')
+    
+    # git-backup 命令
+    git_parser = subparsers.add_parser('git-backup', help='Git 备份')
+    git_parser.add_argument('--enable', action='store_true', help='启用 Git 备份')
+    git_parser.add_argument('--disable', action='store_true', help='禁用 Git 备份')
+    git_parser.add_argument('-m', '--message', help='备份消息')
+    
+    # clear-cache 命令
+    subparsers.add_parser('clear-cache', help='清除缓存')
+    
+    # version 命令
+    subparsers.add_parser('version', help='显示版本')
+    
+    args = parser.parse_args()
+    
+    if args.command == 'capture':
+        result = capture(args.type, args.content, args.importance)
+        if result['status'] == 'success':
+            print(f"✅ 已采集：{result['id']} ({result['layer']})")
+            if 'conflicts' in result:
+                print(f"⚠️ 检测到 {len(result['conflicts'])} 个冲突：")
+                for c in result['conflicts']:
+                    print(f"   - {c['reason']}")
+        else:
+            print(f"❌ 失败：{', '.join(result['errors'])}")
+            sys.exit(1)
+    
+    elif args.command == 'search':
+        result = search(args.query, args.type, args.limit)
+        if result['results']:
+            print(f"🔍 找到 {len(result['results'])} 条记忆：\n")
+            for i, r in enumerate(result['results'], 1):
+                print(f"{i}. [{r['layer']}] {r['content']}")
+                print(f"   权重：{r.get('weight', 0):.2f}")
+        else:
+            print("未找到相关记忆")
+    
+    elif args.command == 'status':
+        result = status()
+        print("🧠 忆伴 MemPal 状态\n")
+        for k, v in result.items():
+            print(f"  {k}: {v}")
+    
+    elif args.command == 'predict':
+        result = predict()
+        if result['deadlines']:
+            print("⏰ 即将到来的截止：")
+            for d in result['deadlines']:
+                print(f"  - {d['content']} (还剩 {d['days_left']} 天)")
+        if result['conflicts']:
+            print("\n⚠️ 检测到的冲突：")
+            for c in result['conflicts']:
+                print(f"  - {c}")
+        if not result['deadlines'] and not result['conflicts']:
+            print("✅ 一切正常")
+    
+    elif args.command == 'build-index':
+        result = build_keyword_index()
+        print(result['message'])
+    
+    elif args.command == 'export':
+        result = export_memories(args.format, args.output)
+        if result.get('data'):
+            print(result['data'])
+        else:
+            print(f"✅ 已导出到 {result['message']}")
+    
+    elif args.command == 'import':
+        result = import_memories(args.file, args.format)
+        print(f"✅ 导入完成：{result['imported']} 条，跳过 {result['skipped']} 条")
+    
+    elif args.command == 'git-backup':
+        if args.enable:
+            result = enable_git_backup()
+        elif args.disable:
+            result = disable_git_backup()
+        elif args.message:
+            result = git_backup(args.message)
+        else:
+            result = git_backup()
+        print(result['message'])
+    
+    elif args.command == 'clear-cache':
+        # 已移除 LRU 缓存，此命令保留但提示
+        print("ℹ️  当前版本不使用 LRU 缓存（避免缓存失效问题）")
+    
+    elif args.command == 'version':
+        print("🧠 忆伴 MemPal v1.0.1")
+        print("你的记忆伙伴，让 OpenClaw 记忆系统更好用")
+    
+    else:
+        parser.print_help()
+
+if __name__ == '__main__':
+    main()
