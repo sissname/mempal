@@ -5,7 +5,7 @@
   "publishedAt": 1775645400000,
   "displayName": "忆伴",
   "displayNameEn": "MemPal",
-  "description": "你的记忆伙伴 — 同义词扩展 (60 组) + 冲突检测 (48 对) + 跨平台锁 + Git 备份 + 版本历史 + 搜索缓存 + 关键词索引 + 导出/导入。零依赖，生产就绪。",
+  "description": "让 OpenClaw 记忆系统更好用 — 同义词扩展 (60 组) + 冲突检测 (48 对) + 跨平台锁 + Git 备份 + 版本历史 + 关键词索引 + 导出/导入。推荐安装 jieba 获得更好的中文分词效果。",
   "type": "skill",
   "tags": ["memory", "wal", "active", "code-agent", "knowledge-graph", "openclaw", "git-backup", "version-history", "cross-platform", "mempal"],
   "author": "33 (with sissname)",
