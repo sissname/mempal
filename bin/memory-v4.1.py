@@ -66,17 +66,7 @@ KEYWORD_INDEX_PATH = MEMORY_DIR / "keyword_index.json"
 INDEX_UPDATE_THRESHOLD = 50  # 超过 50 条记忆时启用索引
 
 # Git 备份配置（从配置文件加载，在函数定义后初始化）
-GIT_BACKUP_ENABLED = False  # 临时值，后面会更新
-GIT_BACKUP_AUTO_PUSH = False
-
-# 版本保留策略
-MAX_VERSIONS_PER_FILE = 10  # 每个文件保留最近 10 个版本
-
-# 搜索缓存配置
-SEARCH_CACHE_SIZE = 100  # LRU 缓存大小
-
-# 关键词倒排索引配置
-ENABLE_KEYWORD_INDEX = True  # 启用索引（大数据量时性能 +100 倍）
+# 注意：实际初始化在 load_config() 函数定义后
 KEYWORD_INDEX_PATH = MEMORY_DIR / "keyword_index.json"
 INDEX_UPDATE_THRESHOLD = 50  # 超过 50 条记忆时启用索引
 
@@ -821,15 +811,30 @@ def capture(type, content, importance=0.5, tags=None):
     timestamp_str = timestamp.strftime('%H:%M:%S')
     date_str = timestamp.strftime('%Y-%m-%d')
     
-    # 2. 写入 L3 (daily/)
-    daily_file = DAILY_DIR / f"{date_str}.md"
-    daily_entry = f"- [{timestamp_str}] [{type}] {content}\n"
-    
-    if daily_file.exists():
-        with open(daily_file, 'a', encoding='utf-8') as f:
-            f.write(daily_entry)
-    else:
-        daily_file.write_text(f"# {date_str}\n\n{daily_entry}", encoding='utf-8')
+    # 2. 写入 L3 (daily/) - 带错误处理
+    try:
+        daily_file = DAILY_DIR / f"{date_str}.md"
+        daily_entry = f"- [{timestamp_str}] [{type}] {content}\n"
+        
+        if daily_file.exists():
+            with open(daily_file, 'a', encoding='utf-8') as f:
+                f.write(daily_entry)
+        else:
+            write_file_with_lock(daily_file, f"# {date_str}\n\n{daily_entry}")
+    except PermissionError:
+        return {
+            "id": None,
+            "layer": None,
+            "status": "error",
+            "errors": ["写入失败：权限不足"]
+        }
+    except OSError as e:
+        return {
+            "id": None,
+            "layer": None,
+            "status": "error",
+            "errors": [f"写入失败：{str(e)}"]
+        }
     
     # 3. 加载现有记忆（用于冲突检测）
     existing = load_existing_memories()
@@ -846,17 +851,28 @@ def capture(type, content, importance=0.5, tags=None):
     
     layer = "L3"
     if write_to_l1:
-        append_to_session_state(type, content, timestamp_str)
-        layer = "L1"
+        try:
+            append_to_session_state(type, content, timestamp_str)
+            layer = "L1"
+        except Exception as e:
+            # L1 写入失败，但 L3 已成功，返回部分成功
+            layer = "L3"
+            print(f"警告：L1 写入失败：{str(e)}")
     
     memory_id = f"mem_{timestamp.strftime('%Y%m%d%H%M%S')}"
     
-    # 6. 添加到知识图谱（改进 4）
-    add_to_graph(memory_id, content, type)
+    # 6. 添加到知识图谱（改进 4）- 带错误处理
+    try:
+        add_to_graph(memory_id, content, type)
+    except Exception as e:
+        print(f"警告：知识图谱更新失败：{str(e)}")
     
-    # 7. 更新关键词索引（v4.3 修复）
+    # 7. 更新关键词索引（v4.3 修复）- 带错误处理
     if ENABLE_KEYWORD_INDEX:
-        update_keyword_index(content, action='add')
+        try:
+            update_keyword_index(content, action='add')
+        except Exception as e:
+            print(f"警告：索引更新失败：{str(e)}")
     
     result = {
         "id": memory_id,
