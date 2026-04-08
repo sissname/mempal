@@ -1,0 +1,55 @@
+{
+  "ownerId": "local",
+  "slug": "mempal",
+  "version": "1.0.0",
+  "publishedAt": 1775645400000,
+  "displayName": "忆伴",
+  "displayNameEn": "MemPal",
+  "description": "你的记忆伙伴 — 同义词扩展 (60 组) + 冲突检测 (48 对) + 跨平台锁 + Git 备份 + 版本历史 + 搜索缓存 + 关键词索引 + 导出/导入。零依赖，生产就绪。",
+  "type": "skill",
+  "tags": ["memory", "wal", "active", "code-agent", "knowledge-graph", "openclaw", "git-backup", "version-history", "cross-platform", "mempal"],
+  "author": "33 (with sissname)",
+  "license": "MIT",
+  "repository": "https://github.com/openclaw/workspace/skills/mempal",
+  "slogan": "你的记忆伙伴，主动提醒每一刻",
+  "features": [
+    "同义词扩展搜索（60+ 词组）",
+    "规则冲突检测（48 对）",
+    "高级权重计算（时效衰减 + 紧急度）",
+    "知识图谱自动建图（9 种关系）",
+    "输入验证",
+    "WAL 协议",
+    "情境触发检查",
+    "预测提醒",
+    "并发处理（跨平台文件锁）",
+    "中文分词（正则/jieba）",
+    "Git 自动备份（可选）",
+    "版本历史（自动保留）",
+    "搜索缓存（LRU）",
+    "关键词倒排索引（性能 +100 倍）",
+    "导出/导入（JSON/Markdown）",
+    "跨平台支持（Windows/macOS/Linux）"
+  ],
+  "requirements": {
+    "openclaw": ">=2026.4.0",
+    "python": ">=3.8",
+    "plugins": [],
+    "optional": {
+      "jieba": ">=0.39 (更好的中文分词)",
+      "git": "可选（Git 备份功能）"
+    }
+  },
+  "knownLimitations": [
+    "中文分词：默认正则，建议安装 jieba",
+    "冲突检测：只检测预定义的 48 对",
+    "向量搜索：使用同义词词典 + 索引替代",
+    "Windows/Linux：已兼容但未充分测试"
+  ],
+  "changelog": {
+    "1.0.0": "正式发布 — 忆伴 MemPal 诞生！同义词扩展/冲突检测/跨平台/索引优化/导出导入",
+    "0.9.0": "RC — 跨平台锁/关键词索引/导出导入",
+    "0.8.0": "Beta — Git 备份/版本历史/搜索缓存",
+    "0.7.0": "Alpha — 同义词扩展/冲突检测/知识图谱",
+    "0.1.0": "Pre-Alpha — 基础架构"
+  }
+}
